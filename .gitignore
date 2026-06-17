@@ -6,7 +6,13 @@ original_game_resources/*
 # Keep .gitkeep so the directory exists after clone (all other contents are gitignored above)
 !original_game_resources/.gitkeep
 
+# Local game resources used for PortMaster packaging tests
+asset/
+
 # Release packaging output
 release/dist/
+
+# Local cross-build output
+new_game/build-portmaster*/
 
 .DS_Store

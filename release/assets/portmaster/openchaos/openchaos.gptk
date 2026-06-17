@@ -1,0 +1,27 @@
+back = esc
+start = esc
+
+a = space
+b = esc
+x = f
+y = c
+
+l1 = mouse_middle
+l2 = leftctrl
+
+r1 = mouse_right
+r2 = mouse_left
+
+up = up
+down = down
+left = left
+right = right
+
+left_analog_up = w
+left_analog_down = s
+left_analog_left = a
+left_analog_right = d
+
+r3 = tab
+
+l3 = leftshift

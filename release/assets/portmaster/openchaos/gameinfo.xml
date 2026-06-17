@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gameList>
+  <game>
+    <path>./openchaos.sh</path>
+    <name>OpenChaos</name>
+    <desc>PortMaster package for the native OpenChaos rewrite.</desc>
+    <genre>Action Adventure</genre>
+    <developer>OpenChaos Contributors</developer>
+    <publisher>Community Port</publisher>
+    <players>1</players>
+  </game>
+</gameList>

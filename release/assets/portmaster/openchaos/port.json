@@ -1,0 +1,24 @@
+{
+  "version": 2,
+  "name": "openchaos",
+  "items": [
+    "openchaos.sh",
+    "openchaos/"
+  ],
+  "attr": {
+    "title": "OpenChaos",
+    "desc": "PortMaster handheld package for the native OpenChaos rewrite of Urban Chaos.",
+    "inst": "Copy the original Urban Chaos game resources into openchaos/assets, including clumps/, data/, text/, config.ini, and the other resource folders from the game install. The launcher links them into the working directory at startup.",
+    "genres": [
+      "action",
+      "adventure"
+    ],
+    "porter": [
+      "jckhng"
+    ],
+    "runtime": "blank",
+    "arch": [
+      "aarch64"
+    ]
+  }
+}

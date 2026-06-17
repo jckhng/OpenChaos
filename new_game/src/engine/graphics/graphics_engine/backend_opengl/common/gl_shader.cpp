@@ -3,11 +3,41 @@
 #include "engine/graphics/graphics_engine/backend_opengl/common/gl_shader.h"
 #include "engine/graphics/graphics_engine/backend_opengl/common/glad/include/glad/gl.h"
 #include <stdio.h>
+#ifdef OPENCHAOS_GLES
+#include <cstring>
+#include <string>
+#endif
+
+#ifdef OPENCHAOS_GLES
+static std::string gl_shader_prepare_source_for_gles(const char* source)
+{
+    std::string adjusted(source ? source : "");
+    const char* desktop_version = "#version 410 core";
+    const size_t version_pos = adjusted.find(desktop_version);
+    if (version_pos != std::string::npos) {
+        const size_t first_non_ws = adjusted.find_first_not_of(" \t\r\n");
+        if (first_non_ws == version_pos && version_pos > 0) {
+            adjusted.erase(0, version_pos);
+        }
+        adjusted.replace(0, strlen(desktop_version),
+            "#version 300 es\n"
+            "precision highp float;\n"
+            "precision highp int;\n");
+    }
+    return adjusted;
+}
+#endif
 
 uint32_t gl_shader_compile(uint32_t type, const char* source)
 {
     GLuint shader = glCreateShader(type);
-    glShaderSource(shader, 1, &source, nullptr);
+#ifdef OPENCHAOS_GLES
+    std::string adjusted_source = gl_shader_prepare_source_for_gles(source);
+    const char* shader_source = adjusted_source.c_str();
+#else
+    const char* shader_source = source;
+#endif
+    glShaderSource(shader, 1, &shader_source, nullptr);
     glCompileShader(shader);
 
     GLint success = 0;

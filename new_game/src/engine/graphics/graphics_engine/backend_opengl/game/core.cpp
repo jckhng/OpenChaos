@@ -177,6 +177,56 @@ struct GLBGRAPixel {
     uint8_t blue, green, red, alpha;
 };
 
+#ifdef OPENCHAOS_GLES
+static uint8_t* gl_alloc_rgba_from_bgra(const void* bgra_pixels, int32_t w, int32_t h)
+{
+    if (!bgra_pixels || w <= 0 || h <= 0)
+        return nullptr;
+
+    const size_t pixel_count = (size_t)w * (size_t)h;
+    uint8_t* rgba = (uint8_t*)malloc(pixel_count * 4);
+    if (!rgba)
+        return nullptr;
+
+    const uint8_t* bgra = (const uint8_t*)bgra_pixels;
+    for (size_t i = 0; i < pixel_count; ++i) {
+        rgba[i * 4 + 0] = bgra[i * 4 + 2];
+        rgba[i * 4 + 1] = bgra[i * 4 + 1];
+        rgba[i * 4 + 2] = bgra[i * 4 + 0];
+        rgba[i * 4 + 3] = bgra[i * 4 + 3];
+    }
+    return rgba;
+}
+#endif
+
+static void gl_tex_image_2d_bgra(GLenum target, GLint level, GLint internal_format,
+    GLsizei w, GLsizei h, const void* bgra_pixels)
+{
+#ifdef OPENCHAOS_GLES
+    uint8_t* rgba = gl_alloc_rgba_from_bgra(bgra_pixels, w, h);
+    glTexImage2D(target, level, internal_format, w, h, 0,
+        GL_RGBA, GL_UNSIGNED_BYTE, rgba ? rgba : bgra_pixels);
+    free(rgba);
+#else
+    glTexImage2D(target, level, internal_format, w, h, 0,
+        GL_BGRA, GL_UNSIGNED_BYTE, bgra_pixels);
+#endif
+}
+
+static void gl_tex_sub_image_2d_bgra(GLenum target, GLint level,
+    GLint x, GLint y, GLsizei w, GLsizei h, const void* bgra_pixels)
+{
+#ifdef OPENCHAOS_GLES
+    uint8_t* rgba = gl_alloc_rgba_from_bgra(bgra_pixels, w, h);
+    glTexSubImage2D(target, level, x, y, w, h,
+        GL_RGBA, GL_UNSIGNED_BYTE, rgba ? rgba : bgra_pixels);
+    free(rgba);
+#else
+    glTexSubImage2D(target, level, x, y, w, h,
+        GL_BGRA, GL_UNSIGNED_BYTE, bgra_pixels);
+#endif
+}
+
 // Texture load info passed to font extraction.
 struct GLTexLoadInfo {
     int32_t width, height;
@@ -333,8 +383,7 @@ static void gl_upload_texture(GLTexture& tex, GLBGRAPixel* pixels, int32_t w, in
         glGenTextures(1, &tex.gl_id);
     }
     glBindTexture(GL_TEXTURE_2D, tex.gl_id);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
-        w, h, 0, GL_BGRA, GL_UNSIGNED_BYTE, pixels);
+    gl_tex_image_2d_bgra(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, pixels);
 
     s_tex_upload_count++;
 
@@ -352,9 +401,11 @@ static void gl_upload_texture(GLTexture& tex, GLBGRAPixel* pixels, int32_t w, in
         tex.has_mipmaps = true;
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+#ifndef OPENCHAOS_GLES
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, -1.7f);
         // GL_TEXTURE_MAX_ANISOTROPY_EXT (0x84FF)
         glTexParameterf(GL_TEXTURE_2D, 0x84FF, 16.0f);
+#endif
     }
     // Default address: wrap.
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -2678,30 +2729,9 @@ static void vid_ensure_resources()
     if (s_vid_program)
         return;
 
-    // Compile shader
-    auto compile = [](GLenum type, const char* src) -> GLuint {
-        GLuint s = glCreateShader(type);
-        glShaderSource(s, 1, &src, nullptr);
-        glCompileShader(s);
-        GLint ok = 0;
-        glGetShaderiv(s, GL_COMPILE_STATUS, &ok);
-        if (!ok) {
-            glDeleteShader(s);
-            return 0;
-        }
-        return s;
-    };
-    GLuint vs = compile(GL_VERTEX_SHADER, SHADER_VIDEO_VERT);
-    GLuint fs = compile(GL_FRAGMENT_SHADER, SHADER_VIDEO_FRAG);
-    if (!vs || !fs)
+    s_vid_program = gl_shader_create_program(SHADER_VIDEO_VERT, SHADER_VIDEO_FRAG);
+    if (!s_vid_program)
         return;
-
-    s_vid_program = glCreateProgram();
-    glAttachShader(s_vid_program, vs);
-    glAttachShader(s_vid_program, fs);
-    glLinkProgram(s_vid_program);
-    glDeleteShader(vs);
-    glDeleteShader(fs);
 
     // VAO/VBO
     glGenVertexArrays(1, &s_vid_vao);
@@ -3314,7 +3344,7 @@ void ge_unlock_texture_pixels(int32_t page)
     }
 
     glBindTexture(GL_TEXTURE_2D, tex.gl_id);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_BGRA, GL_UNSIGNED_BYTE, rgba);
+    gl_tex_sub_image_2d_bgra(GL_TEXTURE_2D, 0, 0, 0, w, h, rgba);
     glBindTexture(GL_TEXTURE_2D, 0);
 
     free(rgba);
@@ -3426,7 +3456,7 @@ void ge_texture_create_user_page(int32_t page, int32_t size, bool alpha_fill)
     glGenTextures(1, &tex.gl_id);
     glBindTexture(GL_TEXTURE_2D, tex.gl_id);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, size, size, 0,
-        GL_BGRA, GL_UNSIGNED_BYTE, blank);
+        GL_RGBA, GL_UNSIGNED_BYTE, blank);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);

@@ -29,6 +29,27 @@ static os_texture* s_texture_head = nullptr;
 // Bound textures (stage 0 and 1).
 static os_texture* s_bound[2] = { nullptr, nullptr };
 
+#ifdef OPENCHAOS_GLES
+static uint8_t* alloc_rgba_from_bgra(const uint8_t* bgra, int32_t width, int32_t height)
+{
+    if (!bgra || width <= 0 || height <= 0)
+        return nullptr;
+
+    const size_t pixel_count = (size_t)width * (size_t)height;
+    uint8_t* rgba = (uint8_t*)malloc(pixel_count * 4);
+    if (!rgba)
+        return nullptr;
+
+    for (size_t i = 0; i < pixel_count; ++i) {
+        rgba[i * 4 + 0] = bgra[i * 4 + 2];
+        rgba[i * 4 + 1] = bgra[i * 4 + 1];
+        rgba[i * 4 + 2] = bgra[i * 4 + 0];
+        rgba[i * 4 + 3] = bgra[i * 4 + 3];
+    }
+    return rgba;
+}
+#endif
+
 // ---------------------------------------------------------------------------
 // Init / shutdown
 // ---------------------------------------------------------------------------
@@ -116,11 +137,18 @@ OGETexture oge_texture_create(const char* name, int32_t width, int32_t height,
             data[i] = 255 - data[i];
     }
 
-    // Upload as BGRA → GL texture.
+    // Upload BGRA source bytes to the GL texture.
     glGenTextures(1, &ot->gl_id);
     glBindTexture(GL_TEXTURE_2D, ot->gl_id);
+#ifdef OPENCHAOS_GLES
+    uint8_t* rgba_data = alloc_rgba_from_bgra(data, width, height);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0,
+        GL_RGBA, GL_UNSIGNED_BYTE, rgba_data ? rgba_data : data);
+    free(rgba_data);
+#else
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0,
         GL_BGRA, GL_UNSIGNED_BYTE, data);
+#endif
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     // CLAMP_TO_EDGE so bilinear sampling at UV=1.0 doesn't wrap to the

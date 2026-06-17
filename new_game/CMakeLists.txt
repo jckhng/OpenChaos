@@ -63,7 +63,18 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/Release")
 # ---------------------------------------------------------------------------
 # Dependencies (via vcpkg)
 # ---------------------------------------------------------------------------
-find_package(SDL3         CONFIG REQUIRED)
+set(OPENCHAOS_SDL3_SOURCE_DIR "" CACHE PATH "Optional SDL3 source tree to build instead of find_package(SDL3).")
+if(OPENCHAOS_SDL3_SOURCE_DIR)
+    set(SDL_SHARED ON CACHE BOOL "" FORCE)
+    set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+    set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
+    set(SDL_TESTS OFF CACHE BOOL "" FORCE)
+    set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(SDL_INSTALL OFF CACHE BOOL "" FORCE)
+    add_subdirectory("${OPENCHAOS_SDL3_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/sdl3_source_build" EXCLUDE_FROM_ALL)
+else()
+    find_package(SDL3 CONFIG REQUIRED)
+endif()
 find_package(OpenAL       CONFIG REQUIRED)
 
 # Static FFmpeg's FindFFMPEG.cmake resolves FFmpeg's private system-lib deps via
@@ -96,6 +107,7 @@ option(ENABLE_ASAN "Enable AddressSanitizer (heap overflow detection)" OFF)
 # Then check build/Release/.ninja_log or capture build output to a file.
 # ---------------------------------------------------------------------------
 option(DEAD_CODE_REPORT "Print dropped (dead) sections during link" OFF)
+option(OPENCHAOS_GLES "Build the OpenGL backend for OpenGL ES instead of desktop OpenGL." OFF)
 
 # ---------------------------------------------------------------------------
 # DualSense backend
@@ -111,7 +123,7 @@ set(DS_BRIDGE_SOURCES
 add_subdirectory(${CMAKE_SOURCE_DIR}/../libDualsense libDualsense_build)
 
 # ---------------------------------------------------------------------------
-# Graphics backend: OpenGL 4.1 Core Profile (only backend)
+# Graphics backend: desktop OpenGL by default, OpenGL ES for PortMaster-style targets.
 # ---------------------------------------------------------------------------
 
 # Embed GLSL shaders as C++ string constants at build time.
@@ -142,18 +154,18 @@ string(REPLACE \"#include \\\"_skin_common.glsl\\\"\" \"\${SKIN_COMMON}\" SKIN_S
 string(REPLACE \"#include \\\"_skin_common.glsl\\\"\" \"\${SKIN_COMMON}\" SKIN_REFLECT_VERT \"\${SKIN_REFLECT_VERT}\")
 file(WRITE \"\${OUT}\"
     \"// Auto-generated from .glsl files — do not edit.\\n\"
-    \"static const char* const SHADER_TL_VERT = R\\\"glsl(\\n\${TL})glsl\\\";\\n\\n\"
-    \"static const char* const SHADER_SKIN_WORLD_VERT = R\\\"glsl(\\n\${SKIN_WORLD_VERT})glsl\\\";\\n\\n\"
-    \"static const char* const SHADER_SKIN_SHADOW_VERT = R\\\"glsl(\\n\${SKIN_SHADOW_VERT})glsl\\\";\\n\\n\"
-    \"static const char* const SHADER_SKIN_REFLECT_VERT = R\\\"glsl(\\n\${SKIN_REFLECT_VERT})glsl\\\";\\n\\n\"
-    \"static const char* const SHADER_SHADOW_SIL_FRAG = R\\\"glsl(\\n\${SHADOW_SIL_FRAG})glsl\\\";\\n\\n\"
-    \"static const char* const SHADER_FRAG = R\\\"glsl(\\n\${FRAG})glsl\\\";\\n\\n\"
-    \"static const char* const SHADER_VIDEO_VERT = R\\\"glsl(\\n\${VID_VERT})glsl\\\";\\n\\n\"
-    \"static const char* const SHADER_VIDEO_FRAG = R\\\"glsl(\\n\${VID_FRAG})glsl\\\";\\n\\n\"
-    \"static const char* const SHADER_FULLSCREEN_QUAD_VERT = R\\\"glsl(\\n\${FSQ_VERT})glsl\\\";\\n\\n\"
-    \"static const char* const SHADER_WIBBLE_FRAG = R\\\"glsl(\\n\${WIBBLE_FRAG})glsl\\\";\\n\\n\"
-    \"static const char* const SHADER_COMPOSITE_FRAG = R\\\"glsl(\\n\${COMPOSITE_FRAG})glsl\\\";\\n\\n\"
-    \"static const char* const SHADER_CRT_FRAG = R\\\"glsl(\\n\${CRT_FRAG})glsl\\\";\\n\"
+    \"static const char* const SHADER_TL_VERT = R\\\"glsl(\${TL})glsl\\\";\\n\\n\"
+    \"static const char* const SHADER_SKIN_WORLD_VERT = R\\\"glsl(\${SKIN_WORLD_VERT})glsl\\\";\\n\\n\"
+    \"static const char* const SHADER_SKIN_SHADOW_VERT = R\\\"glsl(\${SKIN_SHADOW_VERT})glsl\\\";\\n\\n\"
+    \"static const char* const SHADER_SKIN_REFLECT_VERT = R\\\"glsl(\${SKIN_REFLECT_VERT})glsl\\\";\\n\\n\"
+    \"static const char* const SHADER_SHADOW_SIL_FRAG = R\\\"glsl(\${SHADOW_SIL_FRAG})glsl\\\";\\n\\n\"
+    \"static const char* const SHADER_FRAG = R\\\"glsl(\${FRAG})glsl\\\";\\n\\n\"
+    \"static const char* const SHADER_VIDEO_VERT = R\\\"glsl(\${VID_VERT})glsl\\\";\\n\\n\"
+    \"static const char* const SHADER_VIDEO_FRAG = R\\\"glsl(\${VID_FRAG})glsl\\\";\\n\\n\"
+    \"static const char* const SHADER_FULLSCREEN_QUAD_VERT = R\\\"glsl(\${FSQ_VERT})glsl\\\";\\n\\n\"
+    \"static const char* const SHADER_WIBBLE_FRAG = R\\\"glsl(\${WIBBLE_FRAG})glsl\\\";\\n\\n\"
+    \"static const char* const SHADER_COMPOSITE_FRAG = R\\\"glsl(\${COMPOSITE_FRAG})glsl\\\";\\n\\n\"
+    \"static const char* const SHADER_CRT_FRAG = R\\\"glsl(\${CRT_FRAG})glsl\\\";\\n\"
 )
 ")
 add_custom_command(
@@ -258,10 +270,16 @@ elseif(APPLE)
     # effect's real-DPI scanline pitch (see sdl3_display_get_physical_ppcm).
     find_library(CORE_GRAPHICS_LIB CoreGraphics REQUIRED)
     set(BACKEND_LIBS OpenGL::GL ${CORE_GRAPHICS_LIB})
+elseif(OPENCHAOS_GLES)
+    set(BACKEND_LIBS GLESv2)
 else()
     set(BACKEND_LIBS GL)
 endif()
-message(STATUS "Graphics backend: OpenGL 4.1 Core Profile")
+if(OPENCHAOS_GLES)
+    message(STATUS "Graphics backend: OpenGL ES")
+else()
+    message(STATUS "Graphics backend: OpenGL 4.1 Core Profile")
+endif()
 
 # ---------------------------------------------------------------------------
 # Source files
@@ -734,6 +752,7 @@ target_compile_definitions(OpenChaos PRIVATE
     $<$<CONFIG:Release>:NDEBUG>
     $<$<CONFIG:Release>:_RELEASE>
     $<$<CONFIG:Release>:FINAL>
+    $<$<BOOL:${OPENCHAOS_GLES}>:OPENCHAOS_GLES=1>
 )
 # MSVC CRT warnings — Windows only
 if(WIN32)

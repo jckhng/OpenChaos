@@ -1,5 +1,16 @@
 RELEASE_DIR := release
 DIST_DIR    := $(RELEASE_DIR)/dist
+PORTMASTER_ASSETS := $(RELEASE_DIR)/assets/portmaster
+PORTMASTER_BUILD_DIR ?= $(SRC_DIR)/build-portmaster
+PORTMASTER_BINARY ?= $(PORTMASTER_BUILD_DIR)/Release/OpenChaos.aarch64
+PORTMASTER_TOOLCHAIN ?= $(abspath $(SRC_DIR)/cmake/gcc-aarch64-linux.cmake)
+PORTMASTER_OVERLAY_TRIPLETS ?= $(abspath $(SRC_DIR)/cmake/vcpkg-triplets)
+PORTMASTER_TRIPLET ?= openchaos-gcc-arm64-linux
+PORTMASTER_LIB_DIR ?= $(SRC_DIR)/vcpkg_installed/$(PORTMASTER_TRIPLET)/lib
+PORTMASTER_EXTRA_LIB_DIRS ?=
+PORTMASTER_GAME_ASSETS ?=
+PORTMASTER_EXTRA_CMAKE_ARGS ?=
+PORTMASTER_VCPKG_MANIFEST_NO_DEFAULT_FEATURES ?= OFF
 
 ifeq ($(UNAME_S),Darwin)
     ifeq ($(UNAME_M),arm64)
@@ -47,3 +58,74 @@ endif
 	fi; \
 	echo ""; \
 	echo "Done: $(DIST_DIR)/$$ARCHIVE.zip"
+
+# Usage:
+#   make release-package-portmaster VERSION=0.1.0 PORTMASTER_BINARY=/path/to/OpenChaos.aarch64
+#
+# Output:
+#   release/dist/OpenChaos-v<VERSION>-portmaster-aarch64.zip
+#
+# The aarch64 binary must be built separately with a PortMaster-compatible
+# toolchain. The package target only stages the PortMaster layout and metadata.
+.PHONY: release-package-portmaster
+release-package-portmaster:
+ifndef VERSION
+	$(error Usage: make release-package-portmaster VERSION=0.1.0 PORTMASTER_BINARY=/path/to/OpenChaos.aarch64)
+endif
+	@if [ ! -f "$(PORTMASTER_BINARY)" ]; then \
+	  echo "ERROR: PortMaster aarch64 binary not found: $(PORTMASTER_BINARY)" >&2; \
+	  echo "Usage: make release-package-portmaster VERSION=$(VERSION) PORTMASTER_BINARY=/path/to/OpenChaos.aarch64" >&2; \
+	  exit 1; \
+	fi
+	@rm -rf "$(DIST_DIR)/OpenChaos-v$(VERSION)-portmaster-aarch64"
+	@mkdir -p "$(DIST_DIR)"
+	@ARCHIVE="OpenChaos-v$(VERSION)-portmaster-aarch64"; \
+	STAGING="$(DIST_DIR)/$$ARCHIVE"; \
+	mkdir -p "$$STAGING"; \
+	echo "Packaging $$ARCHIVE..."; \
+	cp -R "$(PORTMASTER_ASSETS)/." "$$STAGING/"; \
+	cp "$(PORTMASTER_BINARY)" "$$STAGING/openchaos/OpenChaos.aarch64"; \
+		if [ -d "$(PORTMASTER_LIB_DIR)" ]; then \
+		  find "$(PORTMASTER_LIB_DIR)" -maxdepth 1 \( -type f -o -type l \) -name "*.so*" -exec cp -P {} "$$STAGING/openchaos/libs.aarch64/" \; ; \
+		fi; \
+		for libdir in $(PORTMASTER_EXTRA_LIB_DIRS); do \
+		  if [ -d "$$libdir" ]; then \
+		    find "$$libdir" -maxdepth 1 \( -type f -o -type l \) -name "*.so*" -exec cp -P {} "$$STAGING/openchaos/libs.aarch64/" \; ; \
+		  fi; \
+		done; \
+		if [ -n "$(PORTMASTER_GAME_ASSETS)" ]; then \
+		  if [ ! -d "$(PORTMASTER_GAME_ASSETS)" ]; then \
+	    echo "ERROR: PORTMASTER_GAME_ASSETS directory not found: $(PORTMASTER_GAME_ASSETS)" >&2; \
+	    exit 1; \
+	  fi; \
+	  cp -R "$(PORTMASTER_GAME_ASSETS)/." "$$STAGING/openchaos/assets/"; \
+	fi; \
+		chmod +x "$$STAGING/openchaos.sh" "$$STAGING/openchaos/OpenChaos.aarch64"; \
+		rm -f "$(DIST_DIR)/$$ARCHIVE.zip"; \
+		cd "$(DIST_DIR)" && zip -r "$$ARCHIVE.zip" "$$ARCHIVE" && rm -rf "$$ARCHIVE"; \
+	echo ""; \
+	echo "Done: $(DIST_DIR)/$$ARCHIVE.zip"
+
+# Configure/build helper for the PortMaster aarch64 binary. This still depends
+# on a working vcpkg install and target-compatible dependencies.
+.PHONY: configure-portmaster build-portmaster
+configure-portmaster:
+	$(CMAKE) -S $(SRC_DIR) -B $(PORTMASTER_BUILD_DIR) -G "Ninja Multi-Config" \
+	  "-DCMAKE_TOOLCHAIN_FILE=$(VCPKG_CMAKE)" \
+	  "-DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=$(PORTMASTER_TOOLCHAIN)" \
+	  "-DVCPKG_TARGET_TRIPLET=$(PORTMASTER_TRIPLET)" \
+	  "-DVCPKG_OVERLAY_TRIPLETS=$(PORTMASTER_OVERLAY_TRIPLETS)" \
+	  "-DVCPKG_INSTALLED_DIR=$(abspath $(SRC_DIR)/vcpkg_installed)" \
+	  "-DVCPKG_MANIFEST_NO_DEFAULT_FEATURES=$(PORTMASTER_VCPKG_MANIFEST_NO_DEFAULT_FEATURES)" \
+	  "-DCMAKE_MAKE_PROGRAM=$(shell which ninja)" \
+	  "-DENABLE_ASAN=OFF" \
+	  "-DDEAD_CODE_REPORT=OFF" \
+	  $(PORTMASTER_EXTRA_CMAKE_ARGS)
+
+build-portmaster:
+	@if [ ! -d "$(PORTMASTER_BUILD_DIR)" ]; then \
+	  echo "ERROR: PortMaster build directory not found. Run 'make configure-portmaster' first." >&2; \
+	  exit 1; \
+	fi
+	$(CMAKE) --build $(PORTMASTER_BUILD_DIR) --config Release --target OpenChaos
+	@cp "$(PORTMASTER_BUILD_DIR)/Release/OpenChaos" "$(PORTMASTER_BUILD_DIR)/Release/OpenChaos.aarch64"

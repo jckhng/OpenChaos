@@ -1,4 +1,4 @@
-// OpenGL 4.1 context creation via SDL3.
+// OpenGL context creation via SDL3.
 
 #include "engine/graphics/graphics_engine/backend_opengl/common/gl_context.h"
 #include "engine/graphics/graphics_engine/backend_opengl/common/glad/include/glad/gl.h"
@@ -23,7 +23,11 @@ bool gl_context_create(int32_t width, int32_t height, bool vsync_enabled)
     // SDL3 window must already exist (created by SetupHost at the right
     // size/mode via config.h). We don't resize it here — caller is expected
     // to pass dimensions that match the existing window's drawable size.
+#ifdef OPENCHAOS_GLES
+    if (!sdl3_gl_create_context(3, 0)) {
+#else
     if (!sdl3_gl_create_context(4, 1)) {
+#endif
         fprintf(stderr, "OpenGL: SDL3 GL context creation failed\n");
         return false;
     }

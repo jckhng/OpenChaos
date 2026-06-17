@@ -238,7 +238,11 @@ void game_startup(void)
         // user is the crash log — record the real reason instead of the
         // atexit handler's misleading "Clean exit".
         HOST_fatal_error("Could not open the display / OpenGL context. "
+#ifdef OPENCHAOS_GLES
+                         "Your GPU or graphics driver may not support OpenGL ES 3.0.");
+#else
                          "Your GPU or graphics driver may not support OpenGL 4.1.");
+#endif
         exit(1);
     }
 
