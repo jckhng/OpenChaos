@@ -323,6 +323,7 @@ set(SOURCES_NEW
     src/engine/input/mouse_capture.cpp
     src/engine/input/gamepad.cpp
     src/engine/input/gamepad_globals.cpp
+    src/engine/input/gamepad_bindings.cpp
     src/engine/input/weapon_feel.cpp
     src/engine/input/input_frame.cpp
 

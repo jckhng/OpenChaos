@@ -36,26 +36,21 @@ if [ "${SDL_VIDEODRIVER:-}" = "sdl2" ]; then
 fi
 export SDL3SHIM_SDL2_LIB="${SDL3SHIM_SDL2_LIB:-libSDL2-2.0.so.0}"
 
-# OpenChaos currently reads original game resources from the working directory.
-# Allow users to keep those files under assets/ by linking missing entries into
-# GAMEDIR without replacing anything already installed at the top level.
-if [ -d "$ASSETS_DIR" ]; then
-  for item in "$ASSETS_DIR"/* "$ASSETS_DIR"/.[!.]*; do
-    [ -e "$item" ] || continue
-    name="$(basename "$item")"
-    [ "$name" = "." ] && continue
-    [ "$name" = ".." ] && continue
-    [ -e "$GAMEDIR/$name" ] && continue
-    ln -s "$item" "$GAMEDIR/$name" 2>/dev/null || true
-  done
+# OpenChaos reads original game resources from the current working directory.
+# Run from assets/ when users placed their game data there. This avoids symlink
+# failures on SD-card filesystems that do not support ln -s. If assets/ only has
+# the package placeholder, fall back to GAMEDIR for legacy/manual installs.
+RUN_DIR="$GAMEDIR"
+if [ -d "$ASSETS_DIR/clumps" ] || [ -d "$ASSETS_DIR/data" ] || [ -d "$ASSETS_DIR/levels" ] || [ -f "$ASSETS_DIR/config.ini" ]; then
+  RUN_DIR="$ASSETS_DIR"
 fi
+echo "OpenChaos working directory: $RUN_DIR"
 
-if [ "${OPENCHAOS_USE_GPTOKEYB:-0}" = "1" ]; then
-  $GPTOKEYB "OpenChaos.${DEVICE_ARCH}" -c "$GAMEDIR/openchaos.gptk" &
-fi
+$GPTOKEYB "OpenChaos.${DEVICE_ARCH}" -c "$GAMEDIR/openchaos.gptk" &
 
 pm_platform_helper "$BIN"
 
+cd "$RUN_DIR"
 "$BIN"
 
 pm_finish

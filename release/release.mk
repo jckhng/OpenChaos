@@ -9,6 +9,7 @@ PORTMASTER_TRIPLET ?= openchaos-gcc-arm64-linux
 PORTMASTER_LIB_DIR ?= $(SRC_DIR)/vcpkg_installed/$(PORTMASTER_TRIPLET)/lib
 PORTMASTER_EXTRA_LIB_DIRS ?=
 PORTMASTER_GAME_ASSETS ?=
+PORTMASTER_EXTRA_LICENSE_FILES ?=
 PORTMASTER_EXTRA_CMAKE_ARGS ?=
 PORTMASTER_VCPKG_MANIFEST_NO_DEFAULT_FEATURES ?= OFF
 
@@ -84,6 +85,23 @@ endif
 	mkdir -p "$$STAGING"; \
 	echo "Packaging $$ARCHIVE..."; \
 	cp -R "$(PORTMASTER_ASSETS)/." "$$STAGING/"; \
+	mkdir -p "$$STAGING/openchaos/licenses"; \
+	if [ -f "LICENSE" ]; then \
+	  cp "LICENSE" "$$STAGING/openchaos/licenses/OpenChaos-LICENSE.txt"; \
+	fi; \
+	if [ -d "$(SRC_DIR)/vcpkg_installed/$(PORTMASTER_TRIPLET)/share" ]; then \
+	  for copyright in "$(SRC_DIR)/vcpkg_installed/$(PORTMASTER_TRIPLET)/share"/*/copyright; do \
+	    [ -f "$$copyright" ] || continue; \
+	    package="$$(basename "$$(dirname "$$copyright")")"; \
+	    cp "$$copyright" "$$STAGING/openchaos/licenses/$$package-copyright.txt"; \
+	  done; \
+	fi; \
+	for license_file in $(PORTMASTER_EXTRA_LICENSE_FILES); do \
+	  if [ -f "$$license_file" ]; then \
+	    license_dir="$$(basename "$$(dirname "$$license_file")")"; \
+	    cp "$$license_file" "$$STAGING/openchaos/licenses/$$license_dir-$$(basename "$$license_file")"; \
+	  fi; \
+	done; \
 	cp "$(PORTMASTER_BINARY)" "$$STAGING/openchaos/OpenChaos.aarch64"; \
 		if [ -d "$(PORTMASTER_LIB_DIR)" ]; then \
 		  find "$(PORTMASTER_LIB_DIR)" -maxdepth 1 \( -type f -o -type l \) -name "*.so*" -exec cp -P {} "$$STAGING/openchaos/libs.aarch64/" \; ; \
@@ -102,7 +120,7 @@ endif
 	fi; \
 		chmod +x "$$STAGING/openchaos.sh" "$$STAGING/openchaos/OpenChaos.aarch64"; \
 		rm -f "$(DIST_DIR)/$$ARCHIVE.zip"; \
-		cd "$(DIST_DIR)" && zip -r "$$ARCHIVE.zip" "$$ARCHIVE" && rm -rf "$$ARCHIVE"; \
+		cd "$$STAGING" && zip -r "../$$ARCHIVE.zip" openchaos.sh openchaos && rm -rf "../$$ARCHIVE"; \
 	echo ""; \
 	echo "Done: $(DIST_DIR)/$$ARCHIVE.zip"
 

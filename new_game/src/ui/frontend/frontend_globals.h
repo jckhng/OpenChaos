@@ -23,6 +23,7 @@ extern CBYTE* suggest_order[];
 extern CBYTE menu_choice_yesno[20];
 // uc_orig: menu_choice_scanner (fallen/Source/frontend.cpp)
 extern CBYTE menu_choice_scanner[255];
+extern CBYTE menu_choice_controls[64];
 
 // ---- Background image name arrays ------------------------------------------
 

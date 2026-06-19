@@ -48,6 +48,7 @@
 #include "engine/input/keyboard_globals.h"
 #include "engine/input/input_frame.h"
 #include "engine/input/mouse_capture.h" // mouse_capture_is_active (aim mouse-look)
+#include "engine/input/gamepad_bindings.h"
 #include "game/game_globals.h"
 #include "engine/graphics/pipeline/aeng.h" // MSG_add
 #include "engine/console/console.h" // CONSOLE_text_at
@@ -4018,9 +4019,9 @@ ULONG apply_button_input_car(Thing* p_furn, ULONG input)
         // input gate). Gamepad siren read stays unconditional — F1 is a
         // keyboard concept.
         const bool kb_siren = input_gameplay_enabled() && input_key_press_pending(ACT_CAR_SIREN_KKEY);
-        const bool pad_siren = input_btn_press_pending(ACT_CAR_SIREN_GBTN);
+        const bool pad_siren = input_btn_press_pending(gamepad_bind_car_siren());
         input_key_consume(ACT_CAR_SIREN_KKEY);
-        input_btn_consume(ACT_CAR_SIREN_GBTN);
+        input_btn_consume(gamepad_bind_car_siren());
         if (kb_siren || pad_siren) {
             veh->DControl |= VEH_SIREN;
         }
@@ -4103,7 +4104,7 @@ ULONG get_hardware_input(UWORD type)
                 // direction in process_controls), so suppress its on-foot
                 // movement here — otherwise the character would run while the
                 // player browses weapons. R3 isn't reachable in the car.
-                const bool r3_inventory_held = input_btn_held(ACT_FOOT_INVENTORY_GBTN);
+                const bool r3_inventory_held = input_btn_held(gamepad_bind_inventory());
                 const SLONG axis_x = r3_inventory_held ? (SLONG)AXIS_CENTRE : input_stick_x_axis_raw(ACT_FOOT_MOVE_GAXIS);
                 const SLONG axis_y = r3_inventory_held ? (SLONG)AXIS_CENTRE : input_stick_y_axis_raw(ACT_FOOT_MOVE_GAXIS);
 
@@ -4199,22 +4200,21 @@ ULONG get_hardware_input(UWORD type)
                     // Zoom / back-walk modifier (L1): held from a standstill =
                     // zoom; held + stick = back-walk (rear stick → walk backward).
                     // See process_zoomwalk.
-                    process_zoomwalk(input_btn_held(ACT_FOOT_AIM_GBTN), dx_c, dy_c, stick_in_deadzone, NET_PERSON(0));
+                    process_zoomwalk(input_btn_held(gamepad_bind_aim()), dx_c, dy_c, stick_in_deadzone, NET_PERSON(0));
                 }
 
-                if (input_btn_held(ACT_FOOT_JUMP_GBTN)) {
+                if (input_btn_held(gamepad_bind_jump())) {
                     input |= INPUT_MASK_JUMP;
                     g_dwLastInputChangeTime = dwCurrentTime;
                 }
 
-                // Triangle / Y — driving siren toggle (in-car only). The kick
-                // action lives on R1 (button 10) and no longer fires from
-                // Triangle. INPUT_CAR_PAD_SIREN == INPUT_MASK_KICK, so while
+                // Driving siren toggle (in-car only). INPUT_CAR_PAD_SIREN ==
+                // INPUT_MASK_KICK, so while
                 // driving the triangle press emits INPUT_MASK_KICK to flip
                 // the siren / lights. INPUT_MASK_CANCEL (widget-UI back-out)
-                // now comes from Circle (see ACT_FOOT_SPRINT_GBTN block below)
+                // now comes from Circle (see sprint binding block below)
                 // — modern PlayStation convention: Cross confirms, Circle cancels.
-                if (input_btn_held(ACT_CAR_SIREN_GBTN)) {
+                if (input_btn_held(gamepad_bind_car_siren())) {
                     Thing* p_darci = NET_PERSON(0);
                     const bool driving = p_darci && p_darci->Genus.Person && (p_darci->Genus.Person->Flags & FLAG_PERSON_DRIVING);
                     if (driving) {
@@ -4223,13 +4223,13 @@ ULONG get_hardware_input(UWORD type)
                     }
                 }
 
-                // R1 / RB — on-foot kick (button 10). Suppressed
-                // while driving because the player has no kick action in a
+                // Preset-selected on-foot kick. Suppressed while driving
+                // because the player has no kick action in a
                 // vehicle (and the in-car CAN_PAD_SIREN bit is already covered
-                // by the Triangle path above; firing it again from R1 would
-                // toggle siren on every R1 press, which the player does not
+                // by the siren path above; firing it again from kick would
+                // toggle siren on every kick press, which the player does not
                 // expect in-car).
-                if (input_btn_held(ACT_FOOT_KICK_GBTN)) {
+                if (input_btn_held(gamepad_bind_kick())) {
                     Thing* p_darci = NET_PERSON(0);
                     const bool driving = p_darci && p_darci->Genus.Person && (p_darci->Genus.Person->Flags & FLAG_PERSON_DRIVING);
                     if (!driving) {
@@ -4238,11 +4238,7 @@ ULONG get_hardware_input(UWORD type)
                     }
                 }
 
-                // Square/X previously mapped to PUNCH/shoot; removed so that
-                // punch & shoot live only on R2. Keep the button unbound in
-                // gameplay — nothing to do here.
-
-                if (input_btn_held(ACT_FOOT_START_GBTN)) {
+                if (input_btn_held(gamepad_bind_start())) {
                     input |= INPUT_MASK_START;
                     g_dwLastInputChangeTime = dwCurrentTime;
                 }
@@ -4250,7 +4246,7 @@ ULONG get_hardware_input(UWORD type)
                 // Weapon cycle / inventory rotation moved from Share/Back
                 // (button 4) to R3 (right stick click). Index 8 in rgbButtons
                 // matches SDL3_BTN_RIGHT_STICK and the DualSense R3 mapping.
-                if (input_btn_held(ACT_FOOT_INVENTORY_GBTN)) {
+                if (input_btn_held(gamepad_bind_inventory())) {
                     input |= INPUT_MASK_SELECT;
                     g_dwLastInputChangeTime = dwCurrentTime;
                 }
@@ -4275,7 +4271,8 @@ ULONG get_hardware_input(UWORD type)
                 }
 
                 // L2/R2 no longer map to camera rotation on gamepad — right stick handles camera.
-                // On foot: R2 = alternative PUNCH (shoot/melee), L2 = alternative KICK.
+                // On foot: R2 punches/shoots; the Handheld preset also maps
+                // punch/shoot to a face button.
                 // In car: gas/brake handled in apply_button_input_car() via rgbButtons directly.
                 // Keyboard CAM_LEFT/CAM_RIGHT mapping is preserved below.
                 {
@@ -4334,24 +4331,28 @@ ULONG get_hardware_input(UWORD type)
                             if (input_actions_ak47_reload_gate_set())
                                 mag_empty = true;
                         }
+                        int punch_raw = input_trigger_raw(ACT_FOOT_PUNCH_GTRIG);
+                        const int punch_button = gamepad_bind_punch_button();
+                        if (punch_button >= 0 && input_btn_held(punch_button))
+                            punch_raw = 255;
+
                         WeaponFireDecision fd = weapon_feel_evaluate_fire(
-                            current_weapon, input_trigger_raw(ACT_FOOT_PUNCH_GTRIG),
+                            current_weapon, punch_raw,
                             input_trigger_raw(ACT_FOOT_TACTICAL_MODE_GTRIG), weapon_drawn, mag_empty);
                         if (fd.shoot) {
                             input |= INPUT_MASK_PUNCH;
                             g_dwLastInputChangeTime = dwCurrentTime;
                         }
-                        // fd.kick (analog L2 trigger) intentionally NOT applied —
-                        // kick moved from L2 to R1 (digital, see the Triangle/R1
-                        // block above). L2 is the ACTION button on foot now and
-                        // the brake while driving.
+                        // fd.kick (analog L2 trigger) intentionally NOT applied;
+                        // kick is a preset-selected digital button. L2 remains
+                        // tactical on foot and reverse while driving.
                     }
                 }
 
-                // Square / X — USE (the interaction multitool: get-in-or-out of
-                // car, pick up, search, arrest, levers, ...). Fires both on foot
-                // and while driving (the get-out-of-car flow consumes it).
-                if (input_btn_held(ACT_FOOT_USE_GBTN)) {
+                // Preset-selected USE (the interaction multitool: get-in-or-out
+                // of car, pick up, search, arrest, levers, ...). Fires both on
+                // foot and while driving (the get-out-of-car flow consumes it).
+                if (input_btn_held(gamepad_bind_use())) {
                     input |= INPUT_MASK_ACTION;
                     g_dwLastInputChangeTime = dwCurrentTime;
                 }
@@ -4362,16 +4363,14 @@ ULONG get_hardware_input(UWORD type)
                 // button); INPUT_MASK_CANCEL is read by widget.cpp::FORM_Process
                 // to dismiss in-game forms and harmlessly coexists with SPRINT on
                 // foot (no widget dialog → mask is ignored).
-                if (input_btn_held(ACT_FOOT_SPRINT_GBTN)) {
+                if (input_btn_held(gamepad_bind_sprint())) {
                     input |= INPUT_MASK_SPRINT | INPUT_MASK_CANCEL;
                     g_dwLastInputChangeTime = dwCurrentTime;
                 }
 
-                // Triangle / Y — STEALTH (hold to crouch). On-foot only behaviour;
-                // while driving Triangle is the car siren (separate act_car map),
-                // and the dispatch ignores STEALTH unless idle/gun, so setting the
-                // bit here is harmless in the car.
-                if (input_btn_held(ACT_FOOT_STEALTH_GBTN)) {
+                // Preset-selected STEALTH (hold to crouch). On-foot only
+                // behaviour; the dispatch ignores STEALTH unless idle/gun.
+                if (input_btn_held(gamepad_bind_stealth())) {
                     input |= INPUT_MASK_STEALTH;
                     g_dwLastInputChangeTime = dwCurrentTime;
                 }
@@ -5008,15 +5007,13 @@ void process_hardware_level_input_for_player(Thing* p_player)
             } else {
                 // Not driving — drain the car-siren press_pending flags every
                 // physics tick so that a press of these buttons outside the
-                // car (Triangle on foot, SPACE = jump) doesn't leak into the
-                // first car-entry tick as a spurious siren toggle. SPACE is
-                // dual-use (jump on foot), Triangle on foot is currently
-                // unbound but the input layer still sets press_pending on
-                // every physical press. apply_button_input_car is the only
-                // consumer of these flags — without this drain, the flag
-                // would sit set indefinitely from any outside press.
+                // car (pad siren binding on foot, SPACE = jump) doesn't leak
+                // into the first car-entry tick as a spurious siren toggle.
+                // apply_button_input_car is the only consumer of these flags;
+                // without this drain, the flag would sit set indefinitely from
+                // any outside press.
                 input_key_consume(ACT_CAR_SIREN_KKEY);
-                input_btn_consume(ACT_CAR_SIREN_GBTN);
+                input_btn_consume(gamepad_bind_car_siren());
             }
             {
                 // Main input dispatcher: fight mode vs normal run mode.

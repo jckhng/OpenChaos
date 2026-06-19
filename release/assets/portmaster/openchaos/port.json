@@ -8,7 +8,7 @@
   "attr": {
     "title": "OpenChaos",
     "desc": "PortMaster handheld package for the native OpenChaos rewrite of Urban Chaos.",
-    "inst": "Copy the original Urban Chaos game resources into openchaos/assets, including clumps/, data/, text/, config.ini, and the other resource folders from the game install. The launcher links them into the working directory at startup.",
+    "inst": "Copy the original Urban Chaos game resources into openchaos/assets, including clumps/, data/, text/, config.ini, and the other resource folders from the game install. The launcher runs OpenChaos from openchaos/assets when those resources are present.",
     "genres": [
       "action",
       "adventure"

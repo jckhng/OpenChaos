@@ -28,6 +28,7 @@ extern SLONG ScreenHeight;
 #include "assets/sound_id.h" // S_TUNE_BONUS, S_MENU_CLICK_START, etc.
 #include "engine/input/keyboard_globals.h" // ControlFlag, ShiftFlag
 #include "engine/input/input_frame.h"
+#include "engine/input/gamepad_bindings.h"
 #include "engine/graphics/text/font2d_globals.h" // FONT2D_leftmost_x, FONT2D_rightmost_x
 #include "engine/graphics/text/menufont_globals.h" // FontPage
 #include "game/input_actions.h" // get_hardware_input, INPUT_TYPE_JOY, INPUT_MASK_*
@@ -1605,6 +1606,9 @@ void FRONTEND_easy(UBYTE mode)
             } else if (pt->Choices == MC_SCANNER) {
                 md->Choices = menu_choice_scanner;
                 md->Data |= (2 << 8);
+            } else if (pt->Choices == MC_CONTROLS) {
+                md->Choices = menu_choice_controls;
+                md->Data |= (2 << 8);
             }
             break;
         default:
@@ -1860,7 +1864,13 @@ void FRONTEND_mode(SBYTE mode, bool bDoTransition)
             FRONTEND_init_xition();
         }
         FRONTEND_easy(mode);
-        menu_data[1].Data |= ENV_get_value_number("scanner_follows", 0, "Game");
+        for (int i = 0; i < menu_state.items; i++) {
+            if (menu_data[i].LabelID == X_TRACK) {
+                menu_data[i].Data |= ENV_get_value_number("scanner_follows", 0, "Game");
+            } else if (menu_data[i].LabelID == X_CONTROLS) {
+                menu_data[i].Data |= gamepad_controls_preset();
+            }
+        }
         break;
     case FE_SAVE_CONFIRM:
         if (bDoTransition) {
@@ -2200,7 +2210,13 @@ static void FRONTEND_storedata(void)
         break;
 
     case FE_CONFIG_OPTIONS:
-        ENV_set_value_number("scanner_follows", menu_data[1].Data & 1, "Game");
+        for (int i = 0; i < menu_state.items; i++) {
+            if (menu_data[i].LabelID == X_TRACK) {
+                ENV_set_value_number("scanner_follows", menu_data[i].Data & 1, "Game");
+            } else if (menu_data[i].LabelID == X_CONTROLS) {
+                gamepad_controls_set_preset(menu_data[i].Data & 1);
+            }
+        }
         break;
     }
 }
@@ -2692,6 +2708,11 @@ void FRONTEND_init(bool bGoToTitleScreen)
     strcpy(str, XLAT_str(X_NO));
     str += strlen(str) + 1;
     strcpy(str, XLAT_str(X_YES));
+
+    str = menu_choice_controls;
+    strcpy(str, "OPENCHAOS");
+    str += strlen(str) + 1;
+    strcpy(str, "HANDHELD");
 
     strcpy(MISSION_SCRIPT, "data/");
     CBYTE* lang = XLAT_str(X_THIS_LANGUAGE_IS);

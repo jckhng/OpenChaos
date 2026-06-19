@@ -101,6 +101,7 @@ RawMenuData raw_menu_data[] = {
     { 0, OT_BUTTON, X_OKAY, 0, FE_BACK },
     { FE_CONFIG_OPTIONS, OT_LABEL, X_SCANNER, 0, 0 },
     { 0, OT_MULTI, X_TRACK, MC_SCANNER, 0 },
+    { 0, OT_MULTI, X_CONTROLS, MC_CONTROLS, 0 },
     { 0, OT_BUTTON, X_OKAY, 0, FE_BACK },
     { FE_QUIT, OT_LABEL, X_ARE_YOU_SURE, 0, 0 },
     { 0, OT_BUTTON, X_OKAY, 0, FE_NO_REALLY_QUIT },
@@ -115,6 +116,7 @@ RawMenuData raw_menu_data[] = {
 CBYTE menu_choice_yesno[20];
 // uc_orig: menu_choice_scanner (fallen/Source/frontend.cpp)
 CBYTE menu_choice_scanner[255];
+CBYTE menu_choice_controls[64];
 
 // ---- Background image names (per-theme) ------------------------------------
 

@@ -72,7 +72,7 @@ static void build_defaults_and_migrate(const char* ini_path)
         // menu = menu-navigation virtual-direction threshold (was raw 4096;
         // raised to 0.25 so controller drift doesn't auto-scroll menus).
         // camera_orbit_*: same camera-rotation knobs as [mouse], for the stick.
-        { "gamepad", { { "gameplay_stick_deadzone", 0.25 }, { "menu_stick_deadzone", 0.25 }, { "camera_orbit_sensitivity", 0.4 }, { "camera_orbit_invert_y", false } } }
+        { "gamepad", { { "gameplay_stick_deadzone", 0.25 }, { "menu_stick_deadzone", 0.25 }, { "camera_orbit_sensitivity", 0.4 }, { "camera_orbit_invert_y", false }, { "controls_preset", 0 } } }
     };
 
     // --- config.ini auto-import: TEMPORARILY DISABLED ---------------------

@@ -1,27 +1,31 @@
-back = esc
-start = esc
+back = \
+start = \
 
-a = space
-b = esc
-x = f
-y = c
+a = \
+b = \
+x = \
+y = \
 
-l1 = mouse_middle
-l2 = leftctrl
+l1 = \
+l2 = \
 
-r1 = mouse_right
-r2 = mouse_left
+r1 = \
+r2 = \
 
-up = up
-down = down
-left = left
-right = right
+up = \
+down = \
+left = \
+right = \
 
-left_analog_up = w
-left_analog_down = s
-left_analog_left = a
-left_analog_right = d
+left_analog_up = \
+left_analog_down = \
+left_analog_left = \
+left_analog_right = \
 
-r3 = tab
+right_analog_up = \
+right_analog_down = \
+right_analog_left = \
+right_analog_right = \
 
-l3 = leftshift
+l3 = \
+r3 = \

@@ -130,6 +130,7 @@ struct MissionCache {
 #define MC_YN (CBYTE*)(1)
 // uc_orig: MC_SCANNER (fallen/Source/frontend.cpp)
 #define MC_SCANNER (CBYTE*)(2)
+#define MC_CONTROLS (CBYTE*)(3)
 
 // ---- Misc defines ----------------------------------------------------------
 

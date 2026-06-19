@@ -78,10 +78,10 @@ OpenChaos-portmaster/
       .gitkeep
 ```
 
-`assets/` should be where users place the original game resources, unless code
-inspection shows OpenChaos must have resources directly beside the binary. If it
-does, the launcher or package layout should adapt to the current resource lookup
-instead of requiring code changes for the first packaging pass.
+`assets/` is where users place the original game resources. OpenChaos reads
+resources from the current working directory, so the launcher runs the binary
+from `assets/` when resource folders are present there. This avoids symlink
+creation, which can fail on SD-card filesystems used by some handheld firmwares.
 
 ## Launcher Plan
 
@@ -105,8 +105,9 @@ Create `openchaos.sh` for PortMaster:
    - `SDL3SHIM_SDL2_LIB=libSDL2-2.0.so.0` by default
    - leave `SDL_VIDEODRIVER` unset so the real SDL2 runtime can choose the
      handheld's native video backend
-8. Leave `gptokeyb` disabled by default because OpenChaos reads SDL gamepad
-   input natively. Keep `openchaos.gptk` as an opt-in fallback for diagnostics.
+8. Start `gptokeyb` for PortMaster's Start+Select quit combo, but keep
+   `openchaos.gptk` mapped to no-ops so OpenChaos receives gameplay controls
+   through native SDL gamepad input only.
 9. Call `pm_platform_helper "$BIN"`.
 10. Launch the binary from `GAMEDIR`.
 11. Call `pm_finish`.
@@ -118,24 +119,15 @@ that matches current behavior before changing game code.
 ## Controls Plan
 
 OpenChaos has native SDL gamepad support, so the launcher should use the native
-mapping by default. Keep a `gptokeyb` fallback based on OpenChaos'
-keyboard/mouse layout for menu or firmware-specific diagnostics:
+mapping for gameplay. `gptokeyb` remains running for PortMaster quit handling,
+but every gameplay binding maps to a no-op:
 
-- left stick: `WASD`
-- D-pad: arrow keys or weapon quick-select keys after testing menu behavior
-- A: `space`
-- B: `esc`
-- X: `f`
-- Y: `c`
-- L1: `mouse_middle` or the keyboard equivalent for aim
-- L2: `leftctrl`
-- R1: `mouse_right`
-- R2: `mouse_left`
-- Start: `esc`
-- Select: `tab`
+- buttons: `\`
+- D-pad: `\`
+- sticks: `\`
 
-This mapping should remain opt-in. Running native SDL input and `gptokeyb`
-together can duplicate gameplay controls.
+This prevents duplicate gameplay controls while preserving the frontend quit
+combo.
 
 ## Build Plan
 
