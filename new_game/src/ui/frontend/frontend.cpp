@@ -1608,7 +1608,7 @@ void FRONTEND_easy(UBYTE mode)
                 md->Data |= (2 << 8);
             } else if (pt->Choices == MC_CONTROLS) {
                 md->Choices = menu_choice_controls;
-                md->Data |= (2 << 8);
+                md->Data |= (3 << 8);
             }
             break;
         default:
@@ -2214,7 +2214,7 @@ static void FRONTEND_storedata(void)
             if (menu_data[i].LabelID == X_TRACK) {
                 ENV_set_value_number("scanner_follows", menu_data[i].Data & 1, "Game");
             } else if (menu_data[i].LabelID == X_CONTROLS) {
-                gamepad_controls_set_preset(menu_data[i].Data & 1);
+                gamepad_controls_set_preset(menu_data[i].Data & 0xff);
             }
         }
         break;
@@ -2713,6 +2713,8 @@ void FRONTEND_init(bool bGoToTitleScreen)
     strcpy(str, "OPENCHAOS");
     str += strlen(str) + 1;
     strcpy(str, "HANDHELD");
+    str += strlen(str) + 1;
+    strcpy(str, "CUSTOM");
 
     strcpy(MISSION_SCRIPT, "data/");
     CBYTE* lang = XLAT_str(X_THIS_LANGUAGE_IS);

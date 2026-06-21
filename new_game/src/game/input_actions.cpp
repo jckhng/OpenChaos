@@ -3978,9 +3978,9 @@ ULONG apply_button_input_car(Thing* p_furn, ULONG input)
         // Left stick is STEERING ONLY (X axis); stick Y is intentionally
         // ignored for gas/brake — the previous stick-Y mapping auto-braked
         // mid-corner on slight pull-back / drift ("car brakes by itself").
-        ctl_accel = input_btn_held(ACT_CAR_ACCEL_GBTN); // R2
-        ctl_brake = input_btn_held(ACT_CAR_BRAKE_GBTN); // L1
-        ctl_reverse = input_btn_held(ACT_CAR_REVERSE_GBTN); // L2
+        ctl_accel = input_btn_held(gamepad_bind_car_accelerate()); // R2 by default
+        ctl_brake = input_btn_held(gamepad_bind_car_brake()); // L1 by default
+        ctl_reverse = input_btn_held(gamepad_bind_car_reverse()); // L2 by default
     }
 
     // Set every held control; pedals() resolves the priority brake > reverse
@@ -4331,7 +4331,10 @@ ULONG get_hardware_input(UWORD type)
                             if (input_actions_ak47_reload_gate_set())
                                 mag_empty = true;
                         }
-                        int punch_raw = input_trigger_raw(ACT_FOOT_PUNCH_GTRIG);
+                        int punch_raw = 0;
+                        const int punch_trigger = gamepad_bind_punch_trigger();
+                        if (punch_trigger >= 0)
+                            punch_raw = input_trigger_raw(punch_trigger);
                         const int punch_button = gamepad_bind_punch_button();
                         if (punch_button >= 0 && input_btn_held(punch_button))
                             punch_raw = 255;

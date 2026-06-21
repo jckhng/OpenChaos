@@ -19,9 +19,10 @@ get_controls
 GAMEDIR=/$directory/ports/openchaos/
 RUNTIME_DIR="$GAMEDIR/runtime"
 ASSETS_DIR="$GAMEDIR/assets"
+CONTROLS_DIR="$GAMEDIR/controls"
 BIN="$GAMEDIR/OpenChaos.${DEVICE_ARCH}"
 
-mkdir -p "$RUNTIME_DIR" "$RUNTIME_DIR/home" "$ASSETS_DIR"
+mkdir -p "$RUNTIME_DIR" "$RUNTIME_DIR/home" "$ASSETS_DIR" "$CONTROLS_DIR"
 
 cd "$GAMEDIR"
 
@@ -35,6 +36,7 @@ if [ "${SDL_VIDEODRIVER:-}" = "sdl2" ]; then
   unset SDL_VIDEODRIVER
 fi
 export SDL3SHIM_SDL2_LIB="${SDL3SHIM_SDL2_LIB:-libSDL2-2.0.so.0}"
+export OPENCHAOS_GAMEPAD_BINDINGS="${OPENCHAOS_GAMEPAD_BINDINGS:-$CONTROLS_DIR/gamepad.json}"
 
 # OpenChaos reads original game resources from the current working directory.
 # Run from assets/ when users placed their game data there. This avoids symlink

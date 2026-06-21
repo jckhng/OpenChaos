@@ -30,6 +30,7 @@
 #include "game/input_actions.h"
 #include "game/action_map/act_car.h" // ACT_CAR_ACCEL_GTRIG, ACT_CAR_*_GBTN
 #include "engine/input/gamepad.h" // gamepad_set_shock
+#include "engine/input/gamepad_bindings.h"
 #include "engine/input/gamepad_globals.h" // active_input_device
 #include "engine/input/input_frame.h" // input_trigger_raw
 #include "world_objects/dirt.h"
@@ -2724,10 +2725,11 @@ static void pedals(Vehicle* veh, VehInfo* vinfo, SLONG velocity, UBYTE& friction
                     accel = 0;
             }
 
-            // Analog throttle: scale accel by R2 trigger position (gamepad
-            // only). Full press = full accel, partial = proportional.
+            // Analog throttle: scale accel by R2 trigger position only while
+            // R2 is also the configured gas button. If custom bindings move
+            // gas elsewhere, that button behaves as full digital throttle.
             const int r2 = input_trigger_raw(ACT_CAR_ACCEL_GTRIG);
-            if (active_input_device != INPUT_DEVICE_KEYBOARD_MOUSE && r2 > 0 && r2 < 240) {
+            if (active_input_device != INPUT_DEVICE_KEYBOARD_MOUSE && gamepad_bind_car_accelerate() == ACT_CAR_ACCEL_GBTN && r2 > 0 && r2 < 240) {
                 accel = static_cast<SWORD>((static_cast<SLONG>(accel) * r2) / 255);
             }
 
