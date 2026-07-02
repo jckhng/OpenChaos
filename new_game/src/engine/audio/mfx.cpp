@@ -52,6 +52,15 @@ void MFX_init()
     alContext = alcCreateContext(alDevice, nullptr);
     alcMakeContextCurrent(alContext);
 
+    // 3D sources attenuate with the clamped inverse-distance curve — the OpenAL
+    // equivalent of the original's DirectSound roll-off: loud near the source and
+    // dropping off fast, rather than the even, drawn-out fade of the linear model
+    // (which left sounds audible streets away). Distance model is a context-global
+    // setting in core OpenAL, so set it once here rather than per-source (per-source
+    // needs AL_EXT_source_distance_model and is otherwise ignored — see
+    // FinishLoading). Non-spatialised (2D) sources are unaffected.
+    alDistanceModel(AL_INVERSE_DISTANCE_CLAMPED);
+
     // Debug mute: keep OpenAL fully functional (skipping init caused busy
     // AL_INVALID_OPERATION spin in update paths), just silence the listener.
     if (OC_DEBUG_SOUND_DISABLED) {
@@ -463,7 +472,11 @@ static void FinishLoading(MFX_Voice* vptr)
         alSourcef(vptr->handle, AL_GAIN, Volumes[sptr->type]);
 
         if (vptr->is3D) {
-            alSourcei(vptr->handle, AL_DISTANCE_MODEL, AL_LINEAR_DISTANCE_CLAMPED);
+            // Distance MODEL is set globally once in MFX_init (alDistanceModel) —
+            // it's a context property in core OpenAL; setting it per-source via
+            // alSourcei only works with AL_EXT_source_distance_model and is
+            // silently ignored without it. Reference/max distance ARE per-source,
+            // so they stay here.
             alSourcef(vptr->handle, AL_REFERENCE_DISTANCE, MinDist * COORDINATE_UNITS * sptr->linscale);
             alSourcef(vptr->handle, AL_MAX_DISTANCE, MaxDist * COORDINATE_UNITS * sptr->linscale);
         } else {
@@ -549,6 +562,11 @@ static void SetVoiceGain(MFX_Voice* vptr, float gain)
     vptr->gain = gain;
 }
 
+// Tail (in PCM bytes) before the true end at which an MFX_EARLY_OUT voice is
+// treated as "done", so a queued wave can start seamlessly. 880 bytes = 440
+// samples of 16-bit mono — matches the original's byte-position logic.
+#define MFX_EARLY_OUT_TAIL_BYTES (440 * 2)
+
 // uc_orig: IsVoiceDone (fallen/DDLibrary/Source/MFX.cpp)
 static bool IsVoiceDone(MFX_Voice* vptr)
 {
@@ -557,11 +575,15 @@ static bool IsVoiceDone(MFX_Voice* vptr)
     }
 
     ALint state;
-    ALint posn;
+    ALint byte_posn;
 
     if (vptr->handle) {
         alGetSourcei(vptr->handle, AL_SOURCE_STATE, &state);
-        alGetSourcei(vptr->handle, AL_SAMPLE_OFFSET, &posn);
+        // Byte offset, NOT AL_SAMPLE_OFFSET: smp->size is the PCM buffer size in
+        // bytes, so the EARLY_OUT comparison below must also be in bytes. (Using
+        // sample offset made size - posn never reach the tail for 16-bit/stereo,
+        // so EARLY_OUT never fired — music never advanced to its next queued track.)
+        alGetSourcei(vptr->handle, AL_BYTE_OFFSET, &byte_posn);
     } else if (vptr->smp && vptr->smp->loading) {
         return false;
     } else {
@@ -569,7 +591,11 @@ static bool IsVoiceDone(MFX_Voice* vptr)
     }
 
     if (vptr->flags & MFX_EARLY_OUT) {
-        return (vptr->smp->size - posn < 440 * 2);
+        // Done a short tail before the real end (seamless queue handoff), OR if the
+        // source already stopped — e.g. a frame hitch skipped past the early-out
+        // window, which would otherwise leave the voice stuck "playing" forever.
+        return (state != AL_PLAYING)
+            || (vptr->smp->size - byte_posn < MFX_EARLY_OUT_TAIL_BYTES);
     }
 
     return (state != AL_PLAYING);
@@ -749,6 +775,17 @@ void MFX_play_thing(UWORD channel_id, ULONG wave, ULONG flags, Thing* p)
 void MFX_play_ambient(UWORD channel_id, ULONG wave, ULONG flags)
 {
     if (wave < NumSamples) {
+        // NOTE: this PERMANENTLY marks the sample (shared across all plays) as
+        // non-3D and, if it was an effect, moves it to the ambient volume group.
+        // It never reverts. So a sound id used here can no longer be played as a
+        // positioned 3D effect for the rest of the session, and its volume now
+        // follows the ambient slider. The base game never reuses a sound id both
+        // ways, so this is harmless — but a custom mod that reuses one id for an
+        // ambient layer AND a positioned effect would find the effect goes flat
+        // (non-3D) and changes volume group. This matches the original behaviour
+        // (fallen/DDLibrary/Source/MFX.cpp does the same); kept as-is so vanilla
+        // audio is identical. If mod support ever needs both, the 3D flag / type
+        // would have to move from the sample onto the per-play voice.
         Samples[wave].is3D = false;
         if (Samples[wave].type == SMP_Effect) {
             Samples[wave].type = SMP_Ambient;
@@ -1057,7 +1094,13 @@ SLONG MFX_voice_still_playing(UWORD channel_id, ULONG wave)
 // uc_orig: MFX_QUICK_wait (fallen/DDLibrary/Source/MFX.cpp)
 void MFX_QUICK_wait()
 {
+    // Block until the current QUICK (voice) sample finishes. Usually returns at
+    // once (the previous line has already ended), but if a line is still playing
+    // this can wait a while. Sleep 1 ms per iteration instead of a tight spin so
+    // it doesn't peg a CPU core at 100% (matters on Steam Deck — heat/battery).
+    // OpenAL plays on its own mixer, so AL_SOURCE_STATE still advances while we
+    // sleep and the loop terminates normally.
     while (MFX_QUICK_still_playing())
-        ;
+        sdl3_delay_ms(1);
     MFX_QUICK_stop();
 }
