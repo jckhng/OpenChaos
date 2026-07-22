@@ -821,6 +821,18 @@ target_link_libraries(OpenChaos PRIVATE
     libDualsense
 )
 
+if(UNIX)
+    find_package(Threads REQUIRED)
+    target_link_libraries(OpenChaos PRIVATE Threads::Threads)
+endif()
+
+if(UNIX AND NOT APPLE)
+    set_target_properties(OpenChaos PROPERTIES
+        BUILD_WITH_INSTALL_RPATH ON
+        INSTALL_RPATH "$ORIGIN/libs.aarch64"
+    )
+endif()
+
 
 # ---------------------------------------------------------------------------
 # Post-build: copy game data to output directory

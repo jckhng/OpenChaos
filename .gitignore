@@ -12,6 +12,9 @@ asset/
 # Release packaging output
 release/dist/
 
+# Local bomb-crash reproduction binaries, saves, and device logs
+release/test-bomb-crash/
+
 # Local cross-build output
 new_game/build-portmaster*/
 
