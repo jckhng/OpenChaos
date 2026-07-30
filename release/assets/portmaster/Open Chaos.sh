@@ -38,7 +38,7 @@ fi
 export SDL3SHIM_SDL2_LIB="${SDL3SHIM_SDL2_LIB:-libSDL2-2.0.so.0}"
 export OPENCHAOS_GAMEPAD_BINDINGS="${OPENCHAOS_GAMEPAD_BINDINGS:-$CONTROLS_DIR/gamepad.json}"
 
-# OpenChaos reads original game resources from the current working directory.
+# Open Chaos reads original game resources from the current working directory.
 # Run from assets/ when users placed their game data there. This avoids symlink
 # failures on SD-card filesystems that do not support ln -s. If assets/ only has
 # the package placeholder, fall back to GAMEDIR for legacy/manual installs.
@@ -46,7 +46,9 @@ RUN_DIR="$GAMEDIR"
 if [ -d "$ASSETS_DIR/clumps" ] || [ -d "$ASSETS_DIR/data" ] || [ -d "$ASSETS_DIR/levels" ] || [ -f "$ASSETS_DIR/config.ini" ]; then
   RUN_DIR="$ASSETS_DIR"
 fi
-echo "OpenChaos working directory: $RUN_DIR"
+echo "Open Chaos working directory: $RUN_DIR"
+
+chmod +x "$BIN"
 
 $GPTOKEYB "OpenChaos.${DEVICE_ARCH}" -c "$GAMEDIR/openchaos.gptk" &
 

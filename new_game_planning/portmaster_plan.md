@@ -23,14 +23,16 @@ already has the legal right to redistribute them.
 
 Important PortMaster conventions for this package:
 
-- `openchaos.sh` lives at the package root.
+- `Open Chaos.sh` lives at the package root.
 - The game payload lives under `openchaos/`.
+- `README.md`, `gameinfo.xml`, `port.json`, and `screenshot.png` live at the
+  package root, matching the PortMaster-New `ports/openchaos/` tree.
 - Runtime state is isolated under `openchaos/runtime/`.
 - User-supplied assets live under `openchaos/assets/`.
 - The launcher discovers PortMaster's `control.txt`, calls `get_controls`,
   exports `SDL_GAMECONTROLLERCONFIG`, calls `pm_platform_helper`, runs the
   binary, then calls `pm_finish`.
-- `port.json` uses PortMaster metadata version `2`.
+- `port.json` uses PortMaster metadata version `4`.
 - `gameinfo.xml` points EmulationStation-style frontends at the top-level
   launcher script.
 
@@ -47,6 +49,9 @@ Important PortMaster conventions for this package:
   `SDL_INIT_VIDEO failed: No available video device`. The current hardware path
   uses bmdhacks' SDL3 `sdl2-backend` branch, which exposes SDL3 to OpenChaos but
   delegates video/audio/input to the firmware's SDL2 library.
+- The shim is pinned to repository
+  `https://github.com/bmdhacks/SDL.git`, branch `sdl2-backend`, commit
+  `6057d79baf8321bf190479a699655f06cc2a962f`.
 - The same target could not create the original desktop OpenGL 4.1 core context.
   PortMaster builds now use the `OPENCHAOS_GLES=ON` CMake switch to request an
   OpenGL ES context and adapt embedded GLSL sources to `#version 300 es`.
@@ -60,22 +65,26 @@ add an OpenGL ES-compatible backend/path.
 
 ```text
 OpenChaos-portmaster/
-  openchaos.sh
+  Open Chaos.sh
+  README.md
+  gameinfo.xml
+  port.json
+  screenshot.png
   openchaos/
     OpenChaos.aarch64
     openchaos.gptk
-    port.json
-    gameinfo.xml
     assets/
-      .gitkeep
     controls/
-      .gitkeep
+      gamepad.json
     lib/
-      .gitkeep
     libs.aarch64/
-      .gitkeep
+      libSDL3.so*
+      other required shared libraries
+    licenses/
+      OpenChaos-LICENSE.txt
+      THIRD-PARTY-NOTICES.txt
+      dependency license files
     runtime/
-      .gitkeep
 ```
 
 `assets/` is where users place the original game resources. OpenChaos reads
@@ -85,7 +94,7 @@ creation, which can fail on SD-card filesystems used by some handheld firmwares.
 
 ## Launcher Plan
 
-Create `openchaos.sh` for PortMaster:
+Create `Open Chaos.sh` for PortMaster:
 
 1. Locate PortMaster's control folder.
 2. Source `control.txt` and optional `mod_${CFW_NAME}.txt`.
@@ -109,7 +118,8 @@ Create `openchaos.sh` for PortMaster:
    `openchaos.gptk` mapped to no-ops so OpenChaos receives gameplay controls
    through native SDL gamepad input only.
 9. Call `pm_platform_helper "$BIN"`.
-10. Launch the binary from `GAMEDIR`.
+10. Launch the binary from `assets/` when game data is present there, otherwise
+    use `GAMEDIR` for legacy/manual installs.
 11. Call `pm_finish`.
 
 If OpenChaos gains CLI flags for resource directory, resolution, or fullscreen,
@@ -135,6 +145,9 @@ combo.
 2. Build a Release `aarch64` binary named `OpenChaos.aarch64`.
 3. For SDL3 on handheld firmware, build against bmdhacks' SDL
    `sdl2-backend` branch with:
+   - the exact commit in `release/portmaster-dependencies.lock`
+   - checkout verification through
+     `release/scripts/build-portmaster-aarch64.sh`
    - `VCPKG_MANIFEST_NO_DEFAULT_FEATURES=ON` so vcpkg does not install normal
      SDL3
    - `OPENCHAOS_GLES=ON`
@@ -153,23 +166,22 @@ runtime libraries.
 
 ## Metadata Plan
 
-Create `port.json` with:
+Reuse the PortMaster-New version-4 `port.json` metadata with:
 
-- `name`: `openchaos`
-- `title`: `OpenChaos`
-- `desc`: native OpenChaos rewrite packaged for PortMaster handhelds
+- `name`: `openchaos.zip`
+- `title`: `Open Chaos`
+- `desc`: fan modernization of Urban Chaos packaged for PortMaster handhelds
 - `inst`: tell users where to place original game resources
 - `genres`: `action`, `adventure`
-- `runtime`: `blank` unless testing proves a PortMaster runtime is required
+- `runtime`: an empty array unless testing proves a PortMaster runtime is required
 - `arch`: `aarch64`
 
-Create `gameinfo.xml` with:
+Reuse the PortMaster-New `gameinfo.xml` with:
 
-- path `./openchaos.sh`
-- name `OpenChaos`
+- path `./Open Chaos.sh`
+- name `Open Chaos`
 - genre/action-adventure metadata
-- one player
-- community/rewrite developer and publisher fields
+- upstream developer and publisher fields
 
 ## Implementation Steps
 

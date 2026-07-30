@@ -1,0 +1,6 @@
+BMDHACKS_SDL_REPOSITORY_URL=https://github.com/bmdhacks/SDL.git
+BMDHACKS_SDL_BRANCH=sdl2-backend
+BMDHACKS_SDL_COMMIT=6057d79baf8321bf190479a699655f06cc2a962f
+
+VCPKG_REPOSITORY_URL=https://github.com/microsoft/vcpkg.git
+VCPKG_COMMIT=d4424d012d982dc21529708ccc31fef27c55dcea

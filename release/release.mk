@@ -7,7 +7,18 @@ PORTMASTER_TOOLCHAIN ?= $(abspath $(SRC_DIR)/cmake/gcc-aarch64-linux.cmake)
 PORTMASTER_OVERLAY_TRIPLETS ?= $(abspath $(SRC_DIR)/cmake/vcpkg-triplets)
 PORTMASTER_TRIPLET ?= openchaos-gcc-arm64-linux
 PORTMASTER_LIB_DIR ?= $(SRC_DIR)/vcpkg_installed/$(PORTMASTER_TRIPLET)/lib
+PORTMASTER_SHARE_DIR ?= $(patsubst %/lib,%/share,$(PORTMASTER_LIB_DIR))
 PORTMASTER_EXTRA_LIB_DIRS ?=
+PORTMASTER_BUNDLED_SONAMES ?= \
+	libopenal.so.1 \
+	libavformat.so.62 \
+	libavcodec.so.62 \
+	libswresample.so.6 \
+	libswscale.so.9 \
+	libavutil.so.60 \
+	libSDL3.so.0 \
+	libfmt.so.12
+PORTMASTER_LICENSE_PACKAGES ?= ffmpeg fmt nlohmann-json openal-soft
 PORTMASTER_GAME_ASSETS ?=
 PORTMASTER_EXTRA_LICENSE_FILES ?=
 PORTMASTER_EXTRA_CMAKE_ARGS ?=
@@ -61,9 +72,14 @@ endif
 	echo "Done: $(DIST_DIR)/$$ARCHIVE.zip"
 
 # Usage:
-#   make release-package-portmaster VERSION=0.1.0 PORTMASTER_BINARY=/path/to/OpenChaos.aarch64
+#   make release-package-portmaster \
+#     VERSION=0.1.0 \
+#     PORTMASTER_BINARY=/path/to/OpenChaos.aarch64 \
+#     PORTMASTER_LIB_DIR=/path/to/vcpkg_installed/openchaos-gcc-arm64-linux/lib \
+#     PORTMASTER_EXTRA_LIB_DIRS=/path/to/sdl3-shim-build/Release
 #
 # Output:
+#   release/dist/ports/openchaos/
 #   release/dist/OpenChaos-v<VERSION>-portmaster-aarch64.zip
 #
 # The aarch64 binary must be built separately with a PortMaster-compatible
@@ -78,21 +94,26 @@ endif
 	  echo "Usage: make release-package-portmaster VERSION=$(VERSION) PORTMASTER_BINARY=/path/to/OpenChaos.aarch64" >&2; \
 	  exit 1; \
 	fi
-	@rm -rf "$(DIST_DIR)/OpenChaos-v$(VERSION)-portmaster-aarch64"
+	@rm -rf "$(DIST_DIR)/ports/openchaos"
 	@mkdir -p "$(DIST_DIR)"
 	@ARCHIVE="OpenChaos-v$(VERSION)-portmaster-aarch64"; \
-	STAGING="$(DIST_DIR)/$$ARCHIVE"; \
+	STAGING="$(DIST_DIR)/ports/openchaos"; \
 	mkdir -p "$$STAGING"; \
 	echo "Packaging $$ARCHIVE..."; \
 	cp -R "$(PORTMASTER_ASSETS)/." "$$STAGING/"; \
-	mkdir -p "$$STAGING/openchaos/licenses"; \
+	mkdir -p "$$STAGING/openchaos/assets" "$$STAGING/openchaos/lib" \
+	  "$$STAGING/openchaos/licenses" "$$STAGING/openchaos/libs.aarch64" \
+	  "$$STAGING/openchaos/runtime"; \
 	if [ -f "LICENSE" ]; then \
 	  cp "LICENSE" "$$STAGING/openchaos/licenses/OpenChaos-LICENSE.txt"; \
 	fi; \
-	if [ -d "$(SRC_DIR)/vcpkg_installed/$(PORTMASTER_TRIPLET)/share" ]; then \
-	  for copyright in "$(SRC_DIR)/vcpkg_installed/$(PORTMASTER_TRIPLET)/share"/*/copyright; do \
-	    [ -f "$$copyright" ] || continue; \
-	    package="$$(basename "$$(dirname "$$copyright")")"; \
+	if [ -d "$(PORTMASTER_SHARE_DIR)" ]; then \
+	  for package in $(PORTMASTER_LICENSE_PACKAGES); do \
+	    copyright="$(PORTMASTER_SHARE_DIR)/$$package/copyright"; \
+	    if [ ! -f "$$copyright" ]; then \
+	      echo "ERROR: Missing license for bundled package: $$copyright" >&2; \
+	      exit 1; \
+	    fi; \
 	    cp "$$copyright" "$$STAGING/openchaos/licenses/$$package-copyright.txt"; \
 	  done; \
 	fi; \
@@ -103,26 +124,41 @@ endif
 	  fi; \
 	done; \
 	cp "$(PORTMASTER_BINARY)" "$$STAGING/openchaos/OpenChaos.aarch64"; \
-		if [ -d "$(PORTMASTER_LIB_DIR)" ]; then \
-		  find "$(PORTMASTER_LIB_DIR)" -maxdepth 1 \( -type f -o -type l \) -name "*.so*" -exec cp -P {} "$$STAGING/openchaos/libs.aarch64/" \; ; \
-		fi; \
-		for libdir in $(PORTMASTER_EXTRA_LIB_DIRS); do \
-		  if [ -d "$$libdir" ]; then \
-		    find "$$libdir" -maxdepth 1 \( -type f -o -type l \) -name "*.so*" -exec cp -P {} "$$STAGING/openchaos/libs.aarch64/" \; ; \
-		  fi; \
-		done; \
-		if [ -n "$(PORTMASTER_GAME_ASSETS)" ]; then \
-		  if [ ! -d "$(PORTMASTER_GAME_ASSETS)" ]; then \
+	for soname in $(PORTMASTER_BUNDLED_SONAMES); do \
+	  found=""; \
+	  for libdir in "$(PORTMASTER_LIB_DIR)" $(PORTMASTER_EXTRA_LIB_DIRS); do \
+	    if [ -e "$$libdir/$$soname" ]; then \
+	      cp -L "$$libdir/$$soname" "$$STAGING/openchaos/libs.aarch64/$$soname"; \
+	      found=1; \
+	      break; \
+	    fi; \
+	  done; \
+	  if [ -z "$$found" ]; then \
+	    echo "ERROR: Required PortMaster library not found: $$soname" >&2; \
+	    exit 1; \
+	  fi; \
+	done; \
+	if [ -n "$(PORTMASTER_GAME_ASSETS)" ]; then \
+	  if [ ! -d "$(PORTMASTER_GAME_ASSETS)" ]; then \
 	    echo "ERROR: PORTMASTER_GAME_ASSETS directory not found: $(PORTMASTER_GAME_ASSETS)" >&2; \
 	    exit 1; \
 	  fi; \
 	  cp -R "$(PORTMASTER_GAME_ASSETS)/." "$$STAGING/openchaos/assets/"; \
 	fi; \
-		chmod +x "$$STAGING/openchaos.sh" "$$STAGING/openchaos/OpenChaos.aarch64"; \
-		rm -f "$(DIST_DIR)/$$ARCHIVE.zip"; \
-		cd "$$STAGING" && zip -r "../$$ARCHIVE.zip" openchaos.sh openchaos && rm -rf "../$$ARCHIVE"; \
+	chmod 0644 "$$STAGING/Open Chaos.sh"; \
+	chmod +x "$$STAGING/openchaos/OpenChaos.aarch64"; \
+	rm -f "$(DIST_DIR)/$$ARCHIVE.zip"; \
+	if command -v zip >/dev/null 2>&1; then \
+	  cd "$$STAGING" && zip -qr "../../$$ARCHIVE.zip" "Open Chaos.sh" README.md gameinfo.xml port.json screenshot.png openchaos; \
+	elif command -v bsdtar >/dev/null 2>&1; then \
+	  bsdtar -a -cf "$(abspath $(DIST_DIR))/$$ARCHIVE.zip" -C "$$STAGING" "Open Chaos.sh" README.md gameinfo.xml port.json screenshot.png openchaos; \
+	else \
+	  echo "ERROR: zip or bsdtar is required to create the PortMaster archive." >&2; \
+	  exit 1; \
+	fi; \
 	echo ""; \
-	echo "Done: $(DIST_DIR)/$$ARCHIVE.zip"
+	echo "PR tree: $(DIST_DIR)/ports/openchaos"; \
+	echo "Archive: $(DIST_DIR)/$$ARCHIVE.zip"
 
 # Configure/build helper for the PortMaster aarch64 binary. This still depends
 # on a working vcpkg install and target-compatible dependencies.

@@ -1,0 +1,12 @@
+.git
+.claude
+_CLAUDE_SCREEN.png
+
+asset
+original_game_resources/*
+
+release/dist
+release/test-bomb-crash
+
+new_game/build*
+new_game/vcpkg_installed
